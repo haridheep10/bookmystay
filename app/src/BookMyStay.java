@@ -16,18 +16,16 @@ class RoomInventory {
         return inventory.getOrDefault(roomType, 0);
     }
 
-    public void updateAvailability(String roomType, int newCount) {
-        inventory.put(roomType, newCount);
-    }
-
     public void displayInventory() {
-        System.out.println("===== Current Room Inventory =====");
+        System.out.println("===== Available Rooms =====");
 
         for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            System.out.println(entry.getKey() + " : " + entry.getValue() + " rooms available");
+            if (entry.getValue() > 0) {
+                System.out.println(entry.getKey() + " : " + entry.getValue() + " rooms available");
+            }
         }
 
-        System.out.println("----------------------------------");
+        System.out.println("---------------------------");
     }
 }
 
@@ -44,10 +42,12 @@ public class BookMyStay {
             this.price = price;
         }
 
-        public void displayRoomDetails() {
+        public void displayRoomDetails(int availableRooms) {
             System.out.println("Room Type: " + roomType);
             System.out.println("Beds: " + beds);
             System.out.println("Price per night: ₹" + price);
+            System.out.println("Available Rooms: " + availableRooms);
+            System.out.println("-----------------------------");
         }
     }
 
@@ -71,20 +71,26 @@ public class BookMyStay {
 
     public static void main(String[] args) {
 
-        System.out.println("===== Book My Stay App =====");
-
         RoomInventory inventory = new RoomInventory();
-        inventory.displayInventory();
 
-        System.out.println("\nChecking availability for Single Room:");
-        System.out.println("Available: " + inventory.getAvailability("Single Room"));
+        Room single = new SingleRoom();
+        Room doubleRoom = new DoubleRoom();
+        Room suite = new SuiteRoom();
 
-        System.out.println("\nUpdating Single Room availability...");
-        inventory.updateAvailability("Single Room", 4);
+        int singleAvailable = inventory.getAvailability("Single Room");
+        int doubleAvailable = inventory.getAvailability("Double Room");
+        int suiteAvailable = inventory.getAvailability("Suite Room");
 
-        System.out.println("\nUpdated Inventory:");
-        inventory.displayInventory();
+        if (singleAvailable > 0) {
+            single.displayRoomDetails(singleAvailable);
+        }
 
-        System.out.println("Application Terminated.");
+        if (doubleAvailable > 0) {
+            doubleRoom.displayRoomDetails(doubleAvailable);
+        }
+
+        if (suiteAvailable > 0) {
+            suite.displayRoomDetails(suiteAvailable);
+        }
     }
 }
