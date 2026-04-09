@@ -1,75 +1,81 @@
 import java.util.*;
 
-// Class representing an individual optional offering
-class Service {
-    private String name;
-    private double price;
-
-    public Service(String name, double price) {
-        this.name = name;
-        this.price = price;
-    }
-
-    public String getName() { return name; }
-    public double getPrice() { return price; }
-
-    @Override
-    public String toString() {
-        return name + " ($" + price + ")";
+// Custom Exception for Invalid Room Types
+class InvalidRoomTypeException extends Exception {
+    public InvalidRoomTypeException(String message) {
+        super(message);
     }
 }
 
-// Manages the association between reservations and selected services
-class AddOnServiceManager {
-    // Map and List Combination: Mapping Reservation ID to a List of Services
-    private Map<String, List<Service>> reservationServices = new HashMap<>();
-
-    // Add a service to a specific reservation
-    public void addServiceToReservation(String reservationId, Service service) {
-        reservationServices
-                .computeIfAbsent(reservationId, k -> new ArrayList<>())
-                .add(service);
-        System.out.println("Added " + service.getName() + " to Reservation: " + reservationId);
-    }
-
-    // Cost Aggregation: Calculate total additional cost
-    public double calculateTotalAddOnCost(String reservationId) {
-        List<Service> services = reservationServices.getOrDefault(reservationId, Collections.emptyList());
-        return services.stream().mapToDouble(Service::getPrice).sum();
-    }
-
-    // Retrieve all services for a reservation
-    public List<Service> getServicesForReservation(String reservationId) {
-        return reservationServices.getOrDefault(reservationId, Collections.emptyList());
+// Custom Exception for Insufficient Inventory
+class InsufficientInventoryException extends Exception {
+    public InsufficientInventoryException(String message) {
+        super(message);
     }
 }
 
 public class BookMyStay {
+    private static Map<String, Integer> inventory = new HashMap<>();
+    private static List<String> validRoomTypes = Arrays.asList("Standard", "Deluxe", "Suite");
+
+    static {
+        // Initialize inventory
+        inventory.put("Standard", 2);
+        inventory.put("Deluxe", 1);
+        inventory.put("Suite", 5);
+    }
+
     public static void main(String[] args) {
-        AddOnServiceManager manager = new AddOnServiceManager();
+        System.out.println("--- Book My Stay: Error Handling & Validation ---");
 
-        // Sample Reservation ID
-        String resId = "RES-1001";
+        // Test Case 1: Valid Booking
+        processBooking("Guest_001", "Standard");
 
-        // Define available services
-        Service breakfast = new Service("Buffet Breakfast", 25.0);
-        Service spa = new Service("Spa Treatment", 80.0);
-        Service airportShuttle = new Service("Airport Shuttle", 45.0);
+        // Test Case 2: Invalid Room Type (Triggers Exception)
+        processBooking("Guest_002", "Penthouse");
 
-        System.out.println("--- Selecting Add-On Services ---");
+        // Test Case 3: Out of Stock (Triggers Exception)
+        processBooking("Guest_003", "Standard");
+        processBooking("Guest_004", "Standard"); // This should fail
 
-        // Guest selects services
-        manager.addServiceToReservation(resId, breakfast);
-        manager.addServiceToReservation(resId, spa);
-        manager.addServiceToReservation(resId, airportShuttle);
+        System.out.println("\nFinal Inventory State: " + inventory);
+    }
 
-        // Display results
-        System.out.println("\n--- Reservation Summary (" + resId + ") ---");
-        System.out.println("Selected Services: " + manager.getServicesForReservation(resId));
+    /**
+     * Processes booking with Fail-Fast validation logic.
+     */
+    public static void processBooking(String guestName, String roomType) {
+        try {
+            System.out.println("\nProcessing request for " + guestName + " (Room: " + roomType + ")...");
 
-        double totalCost = manager.calculateTotalAddOnCost(resId);
-        System.out.println("Total Additional Cost: $" + totalCost);
+            // 1. Validate Room Type
+            validateRoomType(roomType);
 
-        System.out.println("\nNote: Core booking and inventory state remain unchanged.");
+            // 2. Validate Inventory Availability
+            validateInventory(roomType);
+
+            // 3. Update State (Only reached if validations pass)
+            inventory.put(roomType, inventory.get(roomType) - 1);
+            System.out.println("SUCCESS: Booking confirmed for " + guestName);
+
+        } catch (InvalidRoomTypeException | InsufficientInventoryException e) {
+            // Graceful Failure Handling
+            System.err.println("VALIDATION FAILURE: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("SYSTEM ERROR: An unexpected error occurred.");
+        }
+    }
+
+    private static void validateRoomType(String roomType) throws InvalidRoomTypeException {
+        if (!validRoomTypes.contains(roomType)) {
+            throw new InvalidRoomTypeException("Room type '" + roomType + "' is not supported.");
+        }
+    }
+
+    private static void validateInventory(String roomType) throws InsufficientInventoryException {
+        int count = inventory.getOrDefault(roomType, 0);
+        if (count <= 0) {
+            throw new InsufficientInventoryException("No " + roomType + " rooms available in inventory.");
+        }
     }
 }
