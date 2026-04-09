@@ -1,75 +1,54 @@
-import java.util.*;
+import java.util.LinkedList;
+import java.util.Queue;
 
-// Class representing an individual optional offering
-class Service {
-    private String name;
-    private double price;
+class BookingRequest {
+    String guestName;
+    int roomId;
 
-    public Service(String name, double price) {
-        this.name = name;
-        this.price = price;
-    }
-
-    public String getName() { return name; }
-    public double getPrice() { return price; }
-
-    @Override
-    public String toString() {
-        return name + " ($" + price + ")";
+    public BookingRequest(String guestName, int roomId) {
+        this.guestName = guestName;
+        this.roomId = roomId;
     }
 }
 
-// Manages the association between reservations and selected services
-class AddOnServiceManager {
-    // Map and List Combination: Mapping Reservation ID to a List of Services
-    private Map<String, List<Service>> reservationServices = new HashMap<>();
+class HotelInventory {
+    private boolean[] rooms = new boolean[5]; // 5 rooms, false = available
 
-    // Add a service to a specific reservation
-    public void addServiceToReservation(String reservationId, Service service) {
-        reservationServices
-                .computeIfAbsent(reservationId, k -> new ArrayList<>())
-                .add(service);
-        System.out.println("Added " + service.getName() + " to Reservation: " + reservationId);
-    }
+    // Critical Section: Synchronized to prevent double allocation
+    public synchronized boolean bookRoom(int roomId, String guest) {
+        if (roomId < 0 || roomId >= rooms.length) return false;
 
-    // Cost Aggregation: Calculate total additional cost
-    public double calculateTotalAddOnCost(String reservationId) {
-        List<Service> services = reservationServices.getOrDefault(reservationId, Collections.emptyList());
-        return services.stream().mapToDouble(Service::getPrice).sum();
-    }
+        if (!rooms[roomId]) {
+            // Simulate processing time to increase chance of race condition
+            try { Thread.sleep(100); } catch (InterruptedException e) {}
 
-    // Retrieve all services for a reservation
-    public List<Service> getServicesForReservation(String reservationId) {
-        return reservationServices.getOrDefault(reservationId, Collections.emptyList());
+            rooms[roomId] = true; // Mark as booked
+            System.out.println("SUCCESS: Room " + roomId + " booked for " + guest);
+            return true;
+        } else {
+            System.out.println("FAILURE: Room " + roomId + " is already taken. Guest: " + guest);
+            return false;
+        }
     }
 }
 
 public class BookMyStay {
     public static void main(String[] args) {
-        AddOnServiceManager manager = new AddOnServiceManager();
+        HotelInventory inventory = new HotelInventory();
 
-        // Sample Reservation ID
-        String resId = "RES-1001";
+        // Scenario: Multiple guests trying to book the SAME room (Room 1)
+        Runnable task1 = () -> inventory.bookRoom(1, "Alice");
+        Runnable task2 = () -> inventory.bookRoom(1, "Bob");
+        Runnable task3 = () -> inventory.bookRoom(2, "Charlie");
 
-        // Define available services
-        Service breakfast = new Service("Buffet Breakfast", 25.0);
-        Service spa = new Service("Spa Treatment", 80.0);
-        Service airportShuttle = new Service("Airport Shuttle", 45.0);
+        Thread thread1 = new Thread(task1);
+        Thread thread2 = new Thread(task2);
+        Thread thread3 = new Thread(task3);
 
-        System.out.println("--- Selecting Add-On Services ---");
+        System.out.println("Starting concurrent booking simulation...");
 
-        // Guest selects services
-        manager.addServiceToReservation(resId, breakfast);
-        manager.addServiceToReservation(resId, spa);
-        manager.addServiceToReservation(resId, airportShuttle);
-
-        // Display results
-        System.out.println("\n--- Reservation Summary (" + resId + ") ---");
-        System.out.println("Selected Services: " + manager.getServicesForReservation(resId));
-
-        double totalCost = manager.calculateTotalAddOnCost(resId);
-        System.out.println("Total Additional Cost: $" + totalCost);
-
-        System.out.println("\nNote: Core booking and inventory state remain unchanged.");
+        thread1.start();
+        thread2.start();
+        thread3.start();
     }
 }
