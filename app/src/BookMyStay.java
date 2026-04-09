@@ -13,8 +13,40 @@ class InsufficientInventoryException extends Exception {
     }
 }
 
+// Booking Request (from UC11)
+class BookingRequest {
+    String guestName;
+    int roomId;
+
+    public BookingRequest(String guestName, int roomId) {
+        this.guestName = guestName;
+        this.roomId = roomId;
+    }
+}
+
+// Hotel Inventory with synchronization (UC11)
+class HotelInventory {
+    private boolean[] rooms = new boolean[5];
+
+    public synchronized boolean bookRoom(int roomId, String guest) {
+        if (roomId < 0 || roomId >= rooms.length) return false;
+
+        if (!rooms[roomId]) {
+            try { Thread.sleep(100); } catch (InterruptedException e) {}
+
+            rooms[roomId] = true;
+            System.out.println("SUCCESS: Room " + roomId + " booked for " + guest);
+            return true;
+        } else {
+            System.out.println("FAILURE: Room " + roomId + " already taken. Guest: " + guest);
+            return false;
+        }
+    }
+}
+
 public class BookMyStay {
 
+    // Existing system (from main)
     private static Map<String, Integer> inventory = new HashMap<>();
     private static Map<String, String> activeBookings = new HashMap<>();
     private static Stack<String> releasedRoomsStack = new Stack<>();
@@ -29,7 +61,7 @@ public class BookMyStay {
         activeBookings.put("B102", "Standard:S-202");
     }
 
-    // ✅ Booking with validation
+    // Booking logic
     public static void processBooking(String guestName, String roomType) {
         try {
             validateRoomType(roomType);
@@ -55,7 +87,7 @@ public class BookMyStay {
         }
     }
 
-    // ✅ Cancellation logic
+    // Cancellation logic
     public static void cancelBooking(String bookingId) {
         if (!activeBookings.containsKey(bookingId)) {
             System.out.println("Booking not found");
@@ -74,7 +106,22 @@ public class BookMyStay {
     }
 
     public static void main(String[] args) {
+
+        // ✅ Existing features
         processBooking("Guest1", "Standard");
         cancelBooking("B101");
+
+        // ✅ New concurrency feature (UC11)
+        HotelInventory hotelInventory = new HotelInventory();
+
+        Runnable t1 = () -> hotelInventory.bookRoom(1, "Alice");
+        Runnable t2 = () -> hotelInventory.bookRoom(1, "Bob");
+        Runnable t3 = () -> hotelInventory.bookRoom(2, "Charlie");
+
+        System.out.println("\n--- Concurrent Booking Simulation ---");
+
+        new Thread(t1).start();
+        new Thread(t2).start();
+        new Thread(t3).start();
     }
 }
