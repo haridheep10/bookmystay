@@ -1,127 +1,95 @@
+import java.io.*;
 import java.util.*;
 
-// Custom Exceptions
-class InvalidRoomTypeException extends Exception {
-    public InvalidRoomTypeException(String message) {
-        super(message);
-    }
-}
+// Serializable Booking Class
+class Booking implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-class InsufficientInventoryException extends Exception {
-    public InsufficientInventoryException(String message) {
-        super(message);
-    }
-}
-
-// Booking Request (from UC11)
-class BookingRequest {
+    String bookingId;
     String guestName;
-    int roomId;
+    String roomType;
 
-    public BookingRequest(String guestName, int roomId) {
+    public Booking(String bookingId, String guestName, String roomType) {
+        this.bookingId = bookingId;
         this.guestName = guestName;
-        this.roomId = roomId;
+        this.roomType = roomType;
     }
-}
 
-// Hotel Inventory with synchronization (UC11)
-class HotelInventory {
-    private boolean[] rooms = new boolean[5];
-
-    public synchronized boolean bookRoom(int roomId, String guest) {
-        if (roomId < 0 || roomId >= rooms.length) return false;
-
-        if (!rooms[roomId]) {
-            try { Thread.sleep(100); } catch (InterruptedException e) {}
-
-            rooms[roomId] = true;
-            System.out.println("SUCCESS: Room " + roomId + " booked for " + guest);
-            return true;
-        } else {
-            System.out.println("FAILURE: Room " + roomId + " already taken. Guest: " + guest);
-            return false;
-        }
+    @Override
+    public String toString() {
+        return "ID: " + bookingId + " | Guest: " + guestName + " | Room: " + roomType;
     }
 }
 
 public class BookMyStay {
 
-    // Existing system (from main)
-    private static Map<String, Integer> inventory = new HashMap<>();
-    private static Map<String, String> activeBookings = new HashMap<>();
-    private static Stack<String> releasedRoomsStack = new Stack<>();
-    private static List<String> validRoomTypes = Arrays.asList("Standard", "Deluxe", "Suite");
+    private static final String STORAGE_FILE = "system_state.ser";
 
-    static {
-        inventory.put("Standard", 2);
-        inventory.put("Deluxe", 1);
+    private Map<String, Integer> inventory = new HashMap<>();
+    private List<Booking> bookingHistory = new ArrayList<>();
+
+    // Initialize default data
+    public void initializeDefaultData() {
+        inventory.put("Deluxe", 10);
         inventory.put("Suite", 5);
-
-        activeBookings.put("B101", "Deluxe:D-101");
-        activeBookings.put("B102", "Standard:S-202");
+        bookingHistory.add(new Booking("B001", "Alice", "Deluxe"));
+        System.out.println("Initialized with default data.");
     }
 
-    // Booking logic
-    public static void processBooking(String guestName, String roomType) {
-        try {
-            validateRoomType(roomType);
-            validateInventory(roomType);
-
-            inventory.put(roomType, inventory.get(roomType) - 1);
-            System.out.println("Booking confirmed for " + guestName);
-
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+    // SAVE SYSTEM STATE
+    public void saveSystemState() {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(STORAGE_FILE))) {
+            oos.writeObject(inventory);
+            oos.writeObject(bookingHistory);
+            System.out.println("SUCCESS: Data saved to file.");
+        } catch (IOException e) {
+            System.out.println("ERROR: Saving failed.");
         }
     }
 
-    private static void validateRoomType(String roomType) throws InvalidRoomTypeException {
-        if (!validRoomTypes.contains(roomType)) {
-            throw new InvalidRoomTypeException("Invalid room type");
-        }
-    }
+    // LOAD SYSTEM STATE
+    @SuppressWarnings("unchecked")
+    public void loadSystemState() {
+        File file = new File(STORAGE_FILE);
 
-    private static void validateInventory(String roomType) throws InsufficientInventoryException {
-        if (inventory.getOrDefault(roomType, 0) <= 0) {
-            throw new InsufficientInventoryException("No rooms available");
-        }
-    }
-
-    // Cancellation logic
-    public static void cancelBooking(String bookingId) {
-        if (!activeBookings.containsKey(bookingId)) {
-            System.out.println("Booking not found");
+        if (!file.exists()) {
+            System.out.println("No saved file found. Starting fresh.");
+            initializeDefaultData();
             return;
         }
 
-        String[] parts = activeBookings.get(bookingId).split(":");
-        String roomType = parts[0];
-        String roomId = parts[1];
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(STORAGE_FILE))) {
+            inventory = (Map<String, Integer>) ois.readObject();
+            bookingHistory = (List<Booking>) ois.readObject();
+            System.out.println("SUCCESS: Data loaded from file.");
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("ERROR: Loading failed. Resetting data.");
+            initializeDefaultData();
+        }
+    }
 
-        releasedRoomsStack.push(roomId);
-        inventory.put(roomType, inventory.get(roomType) + 1);
-        activeBookings.remove(bookingId);
-
-        System.out.println("Cancelled booking: " + bookingId);
+    // DISPLAY DATA
+    public void displayStatus() {
+        System.out.println("\n--- SYSTEM STATE ---");
+        System.out.println("Inventory: " + inventory);
+        System.out.println("Bookings: " + bookingHistory);
+        System.out.println("---------------------");
     }
 
     public static void main(String[] args) {
+        BookMyStay app = new BookMyStay();
 
-        // ✅ Existing features
-        processBooking("Guest1", "Standard");
-        cancelBooking("B101");
+        // Load previous data
+        app.loadSystemState();
+        app.displayStatus();
 
-        // ✅ New concurrency feature (UC11)
-        HotelInventory hotelInventory = new HotelInventory();
+        // Add new booking
+        System.out.println("\nAdding new booking...");
+        app.bookingHistory.add(new Booking("B002", "Bob", "Suite"));
 
-        Runnable t1 = () -> hotelInventory.bookRoom(1, "Alice");
-        Runnable t2 = () -> hotelInventory.bookRoom(1, "Bob");
-        Runnable t3 = () -> hotelInventory.bookRoom(2, "Charlie");
+        // Save updated data
+        app.saveSystemState();
 
-        System.out.println("\n--- Concurrent Booking Simulation ---");
-
-        new Thread(t1).start();
-        new Thread(t2).start();
-        new Thread(t3).start();
+        System.out.println("Program finished.");
     }
 }
