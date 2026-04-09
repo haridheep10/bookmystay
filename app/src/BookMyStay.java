@@ -1,9 +1,10 @@
 import java.io.*;
 import java.util.*;
 
-// Classes must implement Serializable to be saved to a file
+// Serializable Booking Class
 class Booking implements Serializable {
     private static final long serialVersionUID = 1L;
+
     String bookingId;
     String guestName;
     String roomType;
@@ -21,34 +22,38 @@ class Booking implements Serializable {
 }
 
 public class BookMyStay {
+
     private static final String STORAGE_FILE = "system_state.ser";
+
     private Map<String, Integer> inventory = new HashMap<>();
     private List<Booking> bookingHistory = new ArrayList<>();
 
+    // Initialize default data
     public void initializeDefaultData() {
         inventory.put("Deluxe", 10);
         inventory.put("Suite", 5);
         bookingHistory.add(new Booking("B001", "Alice", "Deluxe"));
-        System.out.println("Initialized with default in-memory data.");
+        System.out.println("Initialized with default data.");
     }
 
-    // --- PERSISTENCE LOGIC ---
-
+    // SAVE SYSTEM STATE
     public void saveSystemState() {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(STORAGE_FILE))) {
             oos.writeObject(inventory);
             oos.writeObject(bookingHistory);
-            System.out.println("SUCCESS: System state serialized and saved to " + STORAGE_FILE);
+            System.out.println("SUCCESS: Data saved to file.");
         } catch (IOException e) {
-            System.err.println("ERROR: Could not save state: " + e.getMessage());
+            System.out.println("ERROR: Saving failed.");
         }
     }
 
+    // LOAD SYSTEM STATE
     @SuppressWarnings("unchecked")
     public void loadSystemState() {
         File file = new File(STORAGE_FILE);
+
         if (!file.exists()) {
-            System.out.println("No saved state found. Starting fresh.");
+            System.out.println("No saved file found. Starting fresh.");
             initializeDefaultData();
             return;
         }
@@ -56,35 +61,35 @@ public class BookMyStay {
         try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(STORAGE_FILE))) {
             inventory = (Map<String, Integer>) ois.readObject();
             bookingHistory = (List<Booking>) ois.readObject();
-            System.out.println("SUCCESS: System state recovered from " + STORAGE_FILE);
+            System.out.println("SUCCESS: Data loaded from file.");
         } catch (IOException | ClassNotFoundException e) {
-            System.err.println("ERROR: Recovery failed (corrupted file). Resetting to defaults.");
+            System.out.println("ERROR: Loading failed. Resetting data.");
             initializeDefaultData();
         }
     }
 
-    // --- DISPLAY LOGIC ---
-
+    // DISPLAY DATA
     public void displayStatus() {
-        System.out.println("\n--- Current System State ---");
+        System.out.println("\n--- SYSTEM STATE ---");
         System.out.println("Inventory: " + inventory);
         System.out.println("Bookings: " + bookingHistory);
-        System.out.println("---------------------------\n");
+        System.out.println("---------------------");
     }
 
     public static void main(String[] args) {
         BookMyStay app = new BookMyStay();
 
-        // 1. Attempt to restore data from previous run
+        // Load previous data
         app.loadSystemState();
         app.displayStatus();
 
-        // 2. Simulate a new booking
-        System.out.println("Processing new booking...");
+        // Add new booking
+        System.out.println("\nAdding new booking...");
         app.bookingHistory.add(new Booking("B002", "Bob", "Suite"));
 
-        // 3. Save state before shutdown
+        // Save updated data
         app.saveSystemState();
-        System.out.println("System shutting down safely.");
+
+        System.out.println("Program finished.");
     }
 }
